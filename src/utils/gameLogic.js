@@ -56,3 +56,14 @@ export const determineWinner = (playerCards, dealerCards) => {
   if (dealerValue > playerValue) return "dealer"
   return "push"
 }
+
+
+// Can split if two cards of same value
+export const canSplit = (cards) => {
+  return cards.length === 2 && getCardValue(cards[0]) === getCardValue(cards[1]);
+}
+
+// Can double down if two cards and enough money
+export const canDoubleDown = (cards, money, bet) => {
+  return cards.length === 2 && money >= bet;
+}
