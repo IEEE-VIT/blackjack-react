@@ -1,4 +1,17 @@
+import { useState, useEffect } from "react"
+
 const Card = ({ card, hidden = false }) => {
+  const [flip, setFlip] = useState(false)
+
+  useEffect(() => {
+    if (!hidden) {
+      const timer = setTimeout(() => setFlip(true), 100) // flip card in after mount
+      return () => clearTimeout(timer)
+    } else {
+      setFlip(false)
+    }
+  }, [hidden])
+
   if (hidden) {
     return (
       <div className="card card-back">
@@ -16,7 +29,7 @@ const Card = ({ card, hidden = false }) => {
   }
 
   return (
-    <div className={`card ${isRed ? "red" : "black"}`}>
+    <div className={`card ${isRed ? "red" : "black"} ${flip ? "flip-in" : ""}`}>
       <div className="card-corner top-left">
         <div className="card-value">{card.value}</div>
         <div className="card-suit">{suitSymbol[card.suit]}</div>
