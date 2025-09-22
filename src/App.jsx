@@ -15,7 +15,7 @@ function App() {
   const [dealerCards, setDealerCards] = useState([])
   const [money, setMoney] = useState(1000)
   const [currentBet, setCurrentBet] = useState(0)
-  const [gameState, setGameState] = useState("betting") // 'betting', 'playing', 'dealerTurn', 'gameOver'
+  const [gameState, setGameState] = useState("title") // <-- changed default to "title"
   const [message, setMessage] = useState("")
   const [messageType, setMessageType] = useState("")
 
@@ -32,6 +32,13 @@ function App() {
       setMessage("Failed to initialize game. Please refresh.")
       setMessageType("error")
     }
+  }
+
+  // ---------- NEW: Start Game from Title ----------
+  const startGameFromTitle = () => {
+    setMoney(1000) // Reset money every new game
+    newGame()
+    setGameState("betting")
   }
 
   const placeBet = async (betAmount) => {
@@ -53,7 +60,6 @@ function App() {
       setGameState("playing")
       setMessage("")
 
-      // Check for immediate blackjack
       if (isBlackjack(playerInitialCards)) {
         if (isBlackjack(dealerInitialCards)) {
           endGame("push")
@@ -94,7 +100,7 @@ function App() {
 
     try {
       while (shouldDealerHit(currentDealerCards)) {
-        await new Promise((resolve) => setTimeout(resolve, 1000)) // Delay for animation
+        await new Promise((resolve) => setTimeout(resolve, 1000))
         const newCards = await drawCards(deckId, 1)
         currentDealerCards = [...currentDealerCards, ...newCards]
         setDealerCards(currentDealerCards)
@@ -153,11 +159,25 @@ function App() {
 
   const canHit = gameState === "playing" && !isBust(playerCards) && calculateHandValue(playerCards) < 21
 
+  // ------------------- RENDER -------------------
+  if (gameState === "title") {
+    // ---------- NEW: Title Screen ----------
+    return (
+      <div className="title-screen">
+        <h1 className="fade-in">BLACKJACK-REACT</h1>
+        <button className="start-btn" onClick={startGameFromTitle}>
+          Start Game ($1000)
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="app minimalist">
       <div className="center-title">
         <h1>BlackJack</h1>
       </div>
+
       <div className="main-container">
         <aside className="betting-sidebar">
           <BettingPanel
@@ -167,9 +187,23 @@ function App() {
             gameInProgress={gameState !== "betting"}
           />
         </aside>
+
         <div className="game-center">
           <header className="game-header minimalist-header">
+            {gameState === "playing" && (
+              // ---------- NEW: Quit Button ----------
+              <button
+                className="quit-btn"
+                onClick={() => {
+                  setGameState("title")
+                  newGame()
+                }}
+              >
+                Quit
+              </button>
+            )}
           </header>
+
           <div className="game-area minimalist-area">
             <Hand
               cards={dealerCards}
@@ -180,11 +214,19 @@ function App() {
             <GameMessage message={message} type={messageType} />
             <Hand cards={playerCards} title="Player" />
           </div>
+
           <div className="control-area minimalist-controls">
-            <GameControls onHit={hit} onStand={stand} onNewGame={newGame} gameState={gameState} canHit={canHit} />
+            <GameControls
+              onHit={hit}
+              onStand={stand}
+              onNewGame={newGame}
+              gameState={gameState}
+              canHit={canHit}
+            />
           </div>
         </div>
       </div>
+
       {money <= 0 && (
         <div className="game-over-overlay">
           <div className="game-over-message">
@@ -194,6 +236,7 @@ function App() {
               onClick={() => {
                 setMoney(1000)
                 newGame()
+                setGameState("title") // Return to title screen
               }}
               className="restart-btn"
             >
