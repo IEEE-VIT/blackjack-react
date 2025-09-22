@@ -1,6 +1,15 @@
 "use client"
 
-const GameControls = ({ onHit, onStand, onNewGame, gameState, canHit }) => {
+const GameControls = ({
+  onHit,
+  onStand,
+  onSplit,
+  onDoubleDown,
+  gameState,
+  canHit,
+  canSplit,
+  canDoubleDown,
+}) => {
   return (
     <div className="game-controls">
       {gameState === "playing" && (
@@ -11,6 +20,18 @@ const GameControls = ({ onHit, onStand, onNewGame, gameState, canHit }) => {
           <button onClick={onStand} className="control-btn stand-btn">
             Stand
           </button>
+
+          {canSplit && (
+            <button onClick={onSplit} className="control-btn split-btn">
+              Split
+            </button>
+          )}
+
+          {canDoubleDown && (
+            <button onClick={onDoubleDown} className="control-btn double-down-btn">
+              Double Down
+            </button>
+          )}
         </>
       )}
 
