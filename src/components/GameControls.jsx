@@ -3,8 +3,10 @@
 const GameControls = ({
   onHit,
   onStand,
+  onNewGame,
   onSplit,
   onDoubleDown,
+  onQuit,
   gameState,
   canHit,
   canSplit,
@@ -32,6 +34,10 @@ const GameControls = ({
               Double Down
             </button>
           )}
+
+          <button onClick={onQuit} className="control-btn quit-btn">
+            Quit
+          </button>
         </>
       )}
 

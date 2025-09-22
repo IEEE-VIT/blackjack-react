@@ -5,15 +5,18 @@ import Hand from "./components/Hand"
 import BettingPanel from "./components/BettingPanel"
 import GameControls from "./components/GameControls"
 import GameMessage from "./components/GameMessage"
+import TitleScreen from "./components/TitleScreen" // New component to add
 import { createNewDeck, drawCards } from "./utils/deckApi"
 import { calculateHandValue, isBlackjack, isBust, shouldDealerHit, determineWinner } from "./utils/gameLogic"
 import "./App.css"
 
 function App() {
+  const INITIAL_MONEY = 1000
+  const [showTitle, setShowTitle] = useState(true)
   const [deckId, setDeckId] = useState(null)
   const [playerCards, setPlayerCards] = useState([])
   const [dealerCards, setDealerCards] = useState([])
-  const [money, setMoney] = useState(1000)
+  const [money, setMoney] = useState(INITIAL_MONEY)
   const [currentBet, setCurrentBet] = useState(0)
   const [gameState, setGameState] = useState("betting") // 'betting', 'playing', 'dealerTurn', 'gameOver'
   const [message, setMessage] = useState("")
@@ -32,6 +35,17 @@ function App() {
       setMessage("Failed to initialize game. Please refresh.")
       setMessageType("error")
     }
+  }
+
+  const startGame = () => {
+    setMoney(INITIAL_MONEY)
+    setShowTitle(false)
+    newGame()
+  }
+
+  const quitGame = () => {
+    setShowTitle(true)
+    newGame()
   }
 
   const placeBet = async (betAmount) => {
@@ -153,6 +167,12 @@ function App() {
 
   const canHit = gameState === "playing" && !isBust(playerCards) && calculateHandValue(playerCards) < 21
 
+  if (showTitle) {
+    return (
+      <TitleScreen onStart={startGame} />
+    )
+  }
+
   return (
     <div className="app minimalist">
       <div className="center-title">
@@ -169,6 +189,7 @@ function App() {
         </aside>
         <div className="game-center">
           <header className="game-header minimalist-header">
+            <button className="quit-btn" onClick={quitGame}>Quit</button>
           </header>
           <div className="game-area minimalist-area">
             <Hand
@@ -192,12 +213,13 @@ function App() {
             <p>You're out of money!</p>
             <button
               onClick={() => {
-                setMoney(1000)
+                setMoney(INITIAL_MONEY)
                 newGame()
+                setShowTitle(true)
               }}
               className="restart-btn"
             >
-              Start New Game ($1000)
+              Start New Game (${INITIAL_MONEY})
             </button>
           </div>
         </div>
