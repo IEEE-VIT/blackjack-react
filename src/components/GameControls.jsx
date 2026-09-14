@@ -6,10 +6,13 @@ const GameControls = ({
   onStand,
   onSplit,
   onDoubleDown,
+  onSurrender,
+  onNewGame,
   gameState,
   canHit,
   canSplit,
-  canDoubleDown
+  canDoubleDown,
+  canSurrender
 }) => {
   return (
     <div className="game-controls">
@@ -29,6 +32,11 @@ const GameControls = ({
           {canDoubleDown && (
             <button onClick={onDoubleDown} className="control-btn double-btn">
               Double Down
+            </button>
+          )}
+          {canSurrender && (
+            <button onClick={onSurrender} className="control-btn surrender-btn">
+              Surrender
             </button>
           )}
         </>

@@ -142,6 +142,15 @@ function App() {
     }
   }
 
+  const handleSurrender = () => {
+    if (gameState !== "playing" || playerCards.length !== 2 || splitCards) return
+
+    setMoney((currentMoney) => currentMoney + currentBet / 2)
+    setGameState("gameOver")
+    setMessage("Surrendered")
+    setMessageType("lose")
+  }
+
   const dealerPlay = async () => {
     let currentDealerCards = [...dealerCards]
 
