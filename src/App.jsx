@@ -327,6 +327,8 @@ function App() {
   }
 
   const handleSurrender = () => {
+    if (gameState !== "playing" || playerCards.length !== 2 || splitCards) return
+
     const refundAmount = Math.floor(currentBet / 2)
     setMoney((prevMoney) => prevMoney + refundAmount)
     setGameState("gameOver")
