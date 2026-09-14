@@ -10,12 +10,35 @@ import { createNewDeck, drawCards } from "./utils/deckApi"
 import { calculateHandValue, isBlackjack, isBust, shouldDealerHit, determineWinner, canSplit, canDoubleDown } from "./utils/gameLogic"
 import "./App.css"
 
+const STORAGE_KEYS = ["blackjack-balance", "balance"]
+
+const readStoredBalance = () => {
+  if (typeof window === "undefined") return 1000
+
+  for (const key of STORAGE_KEYS) {
+    const storedValue = Number.parseInt(window.localStorage.getItem(key) ?? "", 10)
+    if (!Number.isNaN(storedValue) && storedValue >= 0) {
+      return storedValue
+    }
+  }
+
+  return 1000
+}
+
+const persistBalance = (balance) => {
+  if (typeof window === "undefined") return
+
+  STORAGE_KEYS.forEach((key) => {
+    window.localStorage.setItem(key, String(balance))
+  })
+}
+
 function App() {
   const [deckId, setDeckId] = useState(null)
   const [hands, setHands] = useState([{ id: 1, cards: [], bet: 0, status: "playing" }])
   const [activeHand, setActiveHand] = useState(0)
   const [dealerCards, setDealerCards] = useState([])
-  const [money, setMoney] = useState(1000)
+  const [money, setMoney] = useState(() => readStoredBalance())
   const [currentBet, setCurrentBet] = useState(0)
   const [insuranceBet, setInsuranceBet] = useState(0)
   const [gameState, setGameState] = useState("betting") // 'betting', 'insurancePrompt', 'playing', 'dealerTurn', 'gameOver'
@@ -29,6 +52,8 @@ function App() {
   useEffect(() => {
     setCurrentBet(hands.reduce((total, hand) => total + hand.bet, 0))
   }, [hands])
+    persistBalance(money)
+  }, [money])
 
   const initializeDeck = async () => {
     try {
