@@ -64,9 +64,10 @@ function App() {
       const dealerUpCard = dealerInitialCards[1]
       const dealerShowsAce = dealerUpCard.value === "ACE"
       const maxInsurance = Math.floor(initialBet / 2)
+      const remainingMoney = money - initialBet
 
-      // Offer insurance if dealer shows Ace and player has funds
-      if (dealerShowsAce && money >= maxInsurance) {
+      // Offer insurance if dealer shows Ace and player has funds left to cover it
+      if (dealerShowsAce && maxInsurance > 0 && remainingMoney >= maxInsurance) {
         setGameState("insurancePrompt")
         return
       }
@@ -140,15 +141,6 @@ function App() {
       setGameState("dealerTurn")
       dealerPlay()
     }
-  }
-
-  const handleSurrender = () => {
-    if (gameState !== "playing" || playerCards.length !== 2 || splitCards) return
-
-    setMoney((currentMoney) => currentMoney + currentBet / 2)
-    setGameState("gameOver")
-    setMessage("Surrendered")
-    setMessageType("lose")
   }
 
   const dealerPlay = async () => {
@@ -335,6 +327,8 @@ function App() {
   }
 
   const handleSurrender = () => {
+    if (gameState !== "playing" || playerCards.length !== 2 || splitCards) return
+
     const refundAmount = Math.floor(currentBet / 2)
     setMoney((prevMoney) => prevMoney + refundAmount)
     setGameState("gameOver")

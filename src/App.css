@@ -400,6 +400,47 @@ body {
   transform: none;
 }
 
+.insurance-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  font-family: "Montserrat", "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif;
+}
+
+.insurance-text {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 1px 1px 2px #7b4b27;
+  text-align: center;
+}
+
+.insurance-buttons {
+  display: flex;
+  gap: 20px;
+}
+
+.insurance-yes-btn {
+  background: #16a34a;
+  color: white;
+}
+
+.insurance-yes-btn:hover {
+  background: #22c55e;
+  transform: translateY(-3px);
+}
+
+.insurance-no-btn {
+  background: #dc2626;
+  color: white;
+}
+
+.insurance-no-btn:hover {
+  background: #ef4444;
+  transform: translateY(-3px);
+}
+
 .game-message {
   padding: 15px 25px;
   border-radius: 10px;
