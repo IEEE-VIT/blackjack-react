@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Hand from "./components/Hand"
 import BettingPanel from "./components/BettingPanel"
 import GameControls from "./components/GameControls"
@@ -23,6 +23,20 @@ function App() {
   const [gameState, setGameState] = useState("betting") // 'betting', 'insurancePrompt', 'playing', 'dealerTurn', 'gameOver'
   const [message, setMessage] = useState("")
   const [messageType, setMessageType] = useState("")
+  const hasLoadedMoney = useRef(false)
+
+  useEffect(() => {
+    const savedMoney = localStorage.getItem("blackjackMoney")
+    if (savedMoney !== null) {
+      setMoney(Number(savedMoney))
+    }
+    hasLoadedMoney.current = true
+  }, [])
+
+  useEffect(() => {
+    if (!hasLoadedMoney.current) return
+    localStorage.setItem("blackjackMoney", String(money))
+  }, [money])
 
   useEffect(() => {
     initializeDeck()
