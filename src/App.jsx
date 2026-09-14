@@ -12,17 +12,15 @@ import "./App.css"
 
 function App() {
   const [deckId, setDeckId] = useState(null)
-  const [playerCards, setPlayerCards] = useState([])
-  const [splitCards, setSplitCards] = useState(null)
-  const [activeHand, setActiveHand] = useState("main")
+  const [hands, setHands] = useState([{ id: 1, cards: [], bet: 0, status: 'playing' }])
+  const [activeHandIndex, setActiveHandIndex] = useState(0)
   const [dealerCards, setDealerCards] = useState([])
   const [money, setMoney] = useState(1000)
-  const [currentBet, setCurrentBet] = useState(0)
-  const [splitBet, setSplitBet] = useState(0)
   const [insuranceBet, setInsuranceBet] = useState(0)
   const [gameState, setGameState] = useState("betting") // 'betting', 'insurancePrompt', 'playing', 'dealerTurn', 'gameOver'
   const [message, setMessage] = useState("")
   const [messageType, setMessageType] = useState("")
+  const [nextHandId, setNextHandId] = useState(2)
 
   useEffect(() => {
     initializeDeck()
@@ -42,7 +40,6 @@ function App() {
   const placeBet = async (betAmount) => {
     if (betAmount > money) return
 
-    setCurrentBet(betAmount)
     setMoney(money - betAmount)
     await dealInitialCards(betAmount)
   }
@@ -53,10 +50,9 @@ function App() {
       const playerInitialCards = [cards[0], cards[2]]
       const dealerInitialCards = [cards[1], cards[3]]
 
-      setPlayerCards(playerInitialCards)
-      setSplitCards(null)
-      setActiveHand("main")
-      setSplitBet(0)
+      setHands([{ id: 1, cards: playerInitialCards, bet: initialBet, status: 'playing' }])
+      setActiveHandIndex(0)
+      setNextHandId(2)
       setInsuranceBet(0)
       setDealerCards(dealerInitialCards)
       setMessage("")
@@ -84,11 +80,11 @@ function App() {
   const handleInsuranceChoice = (buyInsurance) => {
     let cost = 0
     if (buyInsurance) {
-      cost = Math.floor(currentBet / 2)
+      cost = Math.floor(hands[0].bet / 2)
       setInsuranceBet(cost)
       setMoney((prevMoney) => prevMoney - cost)
     }
-    proceedAfterInsurance(playerCards, dealerCards, cost)
+    proceedAfterInsurance(hands[0].cards, dealerCards, cost)
   }
 
   const proceedAfterInsurance = (pCards, dCards, activeInsurance) => {
@@ -97,13 +93,15 @@ function App() {
 
     // Check immediate Blackjack conditions
     if (playerHasBJ || dealerHasBJ) {
+      let result = "push"
       if (playerHasBJ && dealerHasBJ) {
-        endGame("push", activeInsurance, dCards)
+        result = "push"
       } else if (playerHasBJ) {
-        endGame("blackjack", activeInsurance, dCards)
+        result = "blackjack"
       } else {
-        endGame("dealer", activeInsurance, dCards)
+        result = "dealer"
       }
+      endGame([result], activeInsurance, dCards)
     } else {
       setGameState("playing")
     }
@@ -112,21 +110,17 @@ function App() {
   const hit = async () => {
     try {
       const newCards = await drawCards(deckId, 1)
-      if (splitCards && activeHand === "split") {
-        const updatedSplit = [...splitCards, ...newCards]
-        setSplitCards(updatedSplit)
-        if (isBust(updatedSplit)) {
-          setActiveHand("main")
-        }
-      } else {
-        const updatedPlayerCards = [...playerCards, ...newCards]
-        setPlayerCards(updatedPlayerCards)
-        if (isBust(updatedPlayerCards)) {
-          if (splitCards) {
-            setActiveHand("split")
-          } else {
-            endGame("dealer", insuranceBet, dealerCards)
-          }
+      const updatedHands = [...hands]
+      updatedHands[activeHandIndex].cards = [...updatedHands[activeHandIndex].cards, ...newCards]
+      setHands(updatedHands)
+
+      if (isBust(updatedHands[activeHandIndex].cards)) {
+        // Move to next hand
+        if (activeHandIndex < hands.length - 1) {
+          setActiveHandIndex(activeHandIndex + 1)
+        } else {
+          // All hands are bust or completed, proceed to dealer turn
+          endRoundIfAllHandsResolved(updatedHands)
         }
       }
     } catch (error) {
@@ -135,8 +129,8 @@ function App() {
   }
 
   const stand = () => {
-    if (splitCards && activeHand === "main") {
-      setActiveHand("split")
+    if (activeHandIndex < hands.length - 1) {
+      setActiveHandIndex(activeHandIndex + 1)
     } else {
       setGameState("dealerTurn")
       dealerPlay()
@@ -154,20 +148,15 @@ function App() {
         setDealerCards(currentDealerCards)
       }
 
-      if (splitCards) {
-        const mainResult = determineWinner(playerCards, currentDealerCards)
-        const splitResult = determineWinner(splitCards, currentDealerCards)
-        endGame([mainResult, splitResult], insuranceBet, currentDealerCards)
-      } else {
-        const winner = determineWinner(playerCards, currentDealerCards)
-        endGame(winner, insuranceBet, currentDealerCards)
-      }
+      // Determine results for all hands
+      const results = hands.map((hand) => determineWinner(hand.cards, currentDealerCards))
+      endGame(results, insuranceBet, currentDealerCards)
     } catch (error) {
       console.error("Dealer play error:", error)
     }
   }
 
-  const endGame = (winner, currentInsurance = insuranceBet, finalDealerCards = dealerCards) => {
+  const endGame = (winners, currentInsurance = insuranceBet, finalDealerCards = dealerCards) => {
     setGameState("gameOver")
 
     // Calculate Insurance payout (2:1 if Dealer has Blackjack)
@@ -182,154 +171,139 @@ function App() {
       }
     }
 
-    if (Array.isArray(winner)) {
-      let winnings = 0
-      let msg = []
-      let types = []
-      const betArr = [currentBet, splitBet]
-      ;["Main", "Split"].forEach((label, i) => {
-        let w = 0, t = "", m = ""
-        switch (winner[i]) {
-          case "player":
-            w = betArr[i] * 2
-            m = `${label} hand wins! +$${betArr[i]}`
-            t = "win"
-            break
-          case "blackjack":
-            w = Math.floor(betArr[i] * 2.5)
-            m = `${label} hand Blackjack! +$${Math.floor(betArr[i] * 1.5)}`
-            t = "blackjack"
-            break
-          case "dealer":
-            w = 0
-            m = `${label} hand loses! -$${betArr[i]}`
-            t = "lose"
-            break
-          case "push":
-            w = betArr[i]
-            m = `${label} hand push. Bet returned.`
-            t = "push"
-            break
-        }
-        winnings += w
-        msg.push(m)
-        types.push(t)
-      })
-      setMoney((prevMoney) => prevMoney + winnings + insuranceWinnings)
-      setMessage(msg.join(" | ") + insuranceMsg)
-      setMessageType(types.join(" "))
-      return
-    }
-
     let winnings = 0
-    let messageText = ""
-    let msgType = ""
+    let msg = []
+    let types = []
 
-    switch (winner) {
-      case "player":
-        winnings = currentBet * 2
-        messageText = `You win! +$${currentBet}`
-        msgType = "win"
-        break
-      case "blackjack":
-        winnings = Math.floor(currentBet * 2.5)
-        messageText = `Blackjack! +$${Math.floor(currentBet * 1.5)}`
-        msgType = "blackjack"
-        break
-      case "dealer":
-        winnings = 0
-        messageText = `You lose! -$${currentBet}`
-        msgType = "lose"
-        break
-      case "push":
-        winnings = currentBet
-        messageText = "Push! Bet returned."
-        msgType = "push"
-        break
-    }
+    // Handle multiple hands
+    Array.isArray(winners) && winners.forEach((winner, i) => {
+      let w = 0, t = "", m = ""
+      const handLabel = hands.length > 1 ? `Hand ${i + 1}` : "Player"
+      const bet = hands[i].bet
+
+      switch (winner) {
+        case "player":
+          w = bet * 2
+          m = `${handLabel} wins! +$${bet}`
+          t = "win"
+          break
+        case "blackjack":
+          w = Math.floor(bet * 2.5)
+          m = `${handLabel} Blackjack! +$${Math.floor(bet * 1.5)}`
+          t = "blackjack"
+          break
+        case "dealer":
+          w = 0
+          m = `${handLabel} loses! -$${bet}`
+          t = "lose"
+          break
+        case "push":
+          w = bet
+          m = `${handLabel} push. Bet returned.`
+          t = "push"
+          break
+      }
+      winnings += w
+      msg.push(m)
+      types.push(t)
+    })
 
     setMoney((prevMoney) => prevMoney + winnings + insuranceWinnings)
-    setMessage(messageText + insuranceMsg)
-    setMessageType(msgType)
+    setMessage(msg.join(" | ") + insuranceMsg)
+    setMessageType(types.join(" "))
   }
 
   const newGame = () => {
-    setPlayerCards([])
-    setSplitCards(null)
-    setActiveHand("main")
+    setHands([{ id: 1, cards: [], bet: 0, status: 'playing' }])
+    setActiveHandIndex(0)
+    setNextHandId(2)
     setDealerCards([])
-    setCurrentBet(0)
-    setSplitBet(0)
     setInsuranceBet(0)
     setGameState("betting")
     setMessage("")
     setMessageType("")
   }
 
-  let canHit = false
-  if (gameState === "playing") {
-    if (splitCards) {
-      if (activeHand === "main") {
-        canHit = !isBust(playerCards) && calculateHandValue(playerCards) < 21
-      } else {
-        canHit = !isBust(splitCards) && calculateHandValue(splitCards) < 21
-      }
-    } else {
-      canHit = !isBust(playerCards) && calculateHandValue(playerCards) < 21
+  const endRoundIfAllHandsResolved = (currentHands) => {
+    const allResolved = currentHands.every((hand) => 
+      isBust(hand.cards) || calculateHandValue(hand.cards) === 21
+    )
+    if (allResolved) {
+      setGameState("dealerTurn")
+      dealerPlay()
     }
   }
 
-  const showSplit = gameState === "playing" && !splitCards && canSplit(playerCards) && money >= currentBet
-  const showDoubleDown = gameState === "playing" && (
-    (!splitCards && canDoubleDown(playerCards, money, currentBet)) ||
-    (splitCards && activeHand === "main" && playerCards.length === 2 && canDoubleDown(playerCards, money, currentBet)) ||
-    (splitCards && activeHand === "split" && splitCards.length === 2 && canDoubleDown(splitCards, money, splitBet))
-  )
-  const canSurrender = gameState === "playing" && playerCards.length === 2 && !splitCards
+  let canHit = false
+  if (gameState === "playing" && hands.length > 0) {
+    const currentHand = hands[activeHandIndex]
+    canHit = !isBust(currentHand.cards) && calculateHandValue(currentHand.cards) < 21
+  }
+
+  const currentHand = hands.length > 0 ? hands[activeHandIndex] : null
+  const showSplit =
+    gameState === "playing" &&
+    hands.length < 4 &&
+    currentHand &&
+    canSplit(currentHand.cards) &&
+    money >= currentHand.bet
+  const showDoubleDown =
+    gameState === "playing" &&
+    currentHand &&
+    currentHand.cards.length === 2 &&
+    money >= currentHand.bet
+  const canSurrender =
+    gameState === "playing" &&
+    hands.length === 1 &&
+    currentHand &&
+    currentHand.cards.length === 2
 
   const handleSplit = async () => {
-    if (!canSplit(playerCards) || money < currentBet) return
+    const currentHand = hands[activeHandIndex]
+    if (!canSplit(currentHand.cards) || money < currentHand.bet) return
+
     const newCards = await drawCards(deckId, 2)
-    setPlayerCards([playerCards[0], newCards[0]])
-    setSplitCards([playerCards[1], newCards[1]])
-    setSplitBet(currentBet)
-    setMoney((prevMoney) => prevMoney - currentBet)
-    setActiveHand("main")
+    const updatedHands = [...hands]
+    updatedHands[activeHandIndex].cards = [currentHand.cards[0], newCards[0]]
+
+    const newHand = {
+      id: nextHandId,
+      cards: [currentHand.cards[1], newCards[1]],
+      bet: currentHand.bet,
+      status: 'playing'
+    }
+
+    updatedHands.push(newHand)
+    setHands(updatedHands)
+    setNextHandId(nextHandId + 1)
+    setMoney((prevMoney) => prevMoney - currentHand.bet)
   }
 
   const handleDoubleDown = async () => {
-    if (splitCards) {
-      if (activeHand === "main" && playerCards.length === 2 && money >= currentBet) {
-        const newCards = await drawCards(deckId, 1)
-        const updated = [...playerCards, ...newCards]
-        setPlayerCards(updated)
-        setMoney((prevMoney) => prevMoney - currentBet)
-        setCurrentBet(currentBet * 2)
-        setActiveHand("split")
-      } else if (activeHand === "split" && splitCards.length === 2 && money >= splitBet) {
-        const newCards = await drawCards(deckId, 1)
-        const updated = [...splitCards, ...newCards]
-        setSplitCards(updated)
-        setMoney((prevMoney) => prevMoney - splitBet)
-        setSplitBet(splitBet * 2)
-        setGameState("dealerTurn")
-        dealerPlay()
-      }
-    } else if (playerCards.length === 2 && money >= currentBet) {
-      const newCards = await drawCards(deckId, 1)
-      const updated = [...playerCards, ...newCards]
-      setPlayerCards(updated)
-      setMoney((prevMoney) => prevMoney - currentBet)
-      setCurrentBet(currentBet * 2)
+    const currentHand = hands[activeHandIndex]
+    if (currentHand.cards.length !== 2 || money < currentHand.bet) return
+
+    const newCards = await drawCards(deckId, 1)
+    const updatedHands = [...hands]
+    updatedHands[activeHandIndex].cards = [...currentHand.cards, ...newCards]
+    updatedHands[activeHandIndex].bet = currentHand.bet * 2
+    setHands(updatedHands)
+    setMoney((prevMoney) => prevMoney - currentHand.bet)
+
+    // After double down, move to next hand or dealer turn
+    if (activeHandIndex < hands.length - 1) {
+      setActiveHandIndex(activeHandIndex + 1)
+    } else {
       setGameState("dealerTurn")
       dealerPlay()
     }
   }
 
   const handleSurrender = () => {
-    if (gameState !== "playing" || playerCards.length !== 2 || splitCards) return
+    const currentHand = hands[activeHandIndex]
+    if (gameState !== "playing" || currentHand.cards.length !== 2 || hands.length > 1) return
 
-    const refundAmount = Math.floor(currentBet / 2)
+    const refundAmount = Math.floor(currentHand.bet / 2)
     setMoney((prevMoney) => prevMoney + refundAmount)
     setGameState("gameOver")
     setMessage(`Surrendered! Half bet returned (+$${refundAmount})`)
@@ -345,7 +319,7 @@ function App() {
         <aside className="betting-sidebar">
           <BettingPanel
             money={money}
-            currentBet={currentBet}
+            currentBet={hands.length > 0 ? hands[0].bet : 0}
             onPlaceBet={placeBet}
             gameInProgress={gameState !== "betting"}
           />
@@ -360,13 +334,18 @@ function App() {
               showValue={gameState !== "playing" && gameState !== "insurancePrompt"}
             />
             <GameMessage message={message} type={messageType} />
-            <Hand cards={playerCards} title={splitCards ? "Player (Main)" : "Player"} />
-            {splitCards && <Hand cards={splitCards} title="Player (Split)" />}
+            {hands.map((hand, index) => (
+              <Hand
+                key={hand.id}
+                cards={hand.cards}
+                title={hands.length > 1 ? `Hand ${index + 1}` : "Player"}
+              />
+            ))}
           </div>
           <div className="control-area minimalist-controls">
             {gameState === "insurancePrompt" ? (
               <InsurancePrompt
-                insuranceAmount={Math.floor(currentBet / 2)}
+                insuranceAmount={Math.floor(hands[0]?.bet / 2 || 0)}
                 onChoice={handleInsuranceChoice}
               />
             ) : (
