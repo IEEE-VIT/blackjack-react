@@ -22,6 +22,10 @@ function App() {
   const [insuranceBet, setInsuranceBet] = useState(0)
   const [gameState, setGameState] = useState("betting") // 'betting', 'insurancePrompt', 'playing', 'dealerTurn', 'gameOver'
   const [message, setMessage] = useState("")
+  const [highScore, setHighScore] = useState(() => {
+  const savedScore = localStorage.getItem("highScore")
+  return savedScore ? Number(savedScore) : 0
+})
   const [messageType, setMessageType] = useState("")
 
   useEffect(() => {
